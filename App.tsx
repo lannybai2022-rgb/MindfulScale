@@ -22,9 +22,9 @@ const App: React.FC = () => {
   
   // Configuration State
   const [showSettings, setShowSettings] = useState(false);
-  const [supabaseUrl, setSupabaseUrl] = useState(import.meta.env.VITE_SUPABASE_URL || '');
-  const [supabaseKey, setSupabaseKey] = useState(import.meta.env.VITE_SUPABASE_ANON_KEY || '');
-  const [deepseekKey, setDeepseekKey] = useState('');
+  const [supabaseUrl, setSupabaseUrl] = useState('https://neloydyucfoenafqjdjf.supabase.co');
+  const [supabaseKey, setSupabaseKey] = useState('eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5lbG95ZHl1Y2ZvZW5hZnFqZGpmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjM2MTAwNjksImV4cCI6MjA3OTE4NjA2OX0.7HZKACslvPPm7aaN2hSycBPYMBltW9bMfoyz6YKFQx0');
+  const [deepseekKey, setDeepseekKey] = useState('sk-0f288d36557a4f34ba215d18850bcae1');
   const [dbError, setDbError] = useState('');
   const [isCloudConnected, setIsCloudConnected] = useState(false);
 
