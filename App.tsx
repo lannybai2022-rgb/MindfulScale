@@ -22,8 +22,8 @@ const App: React.FC = () => {
   
   // Configuration State
   const [showSettings, setShowSettings] = useState(false);
-  const [supabaseUrl, setSupabaseUrl] = useState('');
-  const [supabaseKey, setSupabaseKey] = useState('');
+  const [supabaseUrl, setSupabaseUrl] = useState(import.meta.env.VITE_SUPABASE_URL || '');
+  const [supabaseKey, setSupabaseKey] = useState(import.meta.env.VITE_SUPABASE_ANON_KEY || '');
   const [deepseekKey, setDeepseekKey] = useState('');
   const [dbError, setDbError] = useState('');
   const [isCloudConnected, setIsCloudConnected] = useState(false);
