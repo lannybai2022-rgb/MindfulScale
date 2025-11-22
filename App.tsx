@@ -22,9 +22,12 @@ const App: React.FC = () => {
   
   // Configuration State
   const [showSettings, setShowSettings] = useState(false);
+  
+  // ✅ 1. 这里保留你填写的硬编码 Key，确保一启动就有值
   const [supabaseUrl, setSupabaseUrl] = useState('https://neloydyucfoenafqjdjf.supabase.co');
   const [supabaseKey, setSupabaseKey] = useState('eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5lbG95ZHl1Y2ZvZW5hZnFqZGpmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjM2MTAwNjksImV4cCI6MjA3OTE4NjA2OX0.7HZKACslvPPm7aaN2hSycBPYMBltW9bMfoyz6YKFQx0');
   const [deepseekKey, setDeepseekKey] = useState('sk-0f288d36557a4f34ba215d18850bcae1');
+  
   const [dbError, setDbError] = useState('');
   const [isCloudConnected, setIsCloudConnected] = useState(false);
 
@@ -43,16 +46,13 @@ const App: React.FC = () => {
     }
   };
 
-  // Initialize
+  // ✅ 2. Initialize - 这一段完全重写了
+  // 删除了读取 URL/Key 缓存的逻辑，防止覆盖掉正确的 Key
   useEffect(() => {
-    // Load Config from LocalStorage
-    const savedUrl = localStorage.getItem(SUPABASE_URL_STORAGE);
-    const savedSbKey = localStorage.getItem(SUPABASE_KEY_STORAGE);
+    // 仅从本地读取 DeepSeek Key 和 用户信息（不读 Supabase 配置）
     const savedDsKey = localStorage.getItem(DEEPSEEK_KEY_STORAGE);
     const savedAccount = localStorage.getItem(CURRENT_USER_STORAGE);
     
-    if (savedUrl) setSupabaseUrl(savedUrl);
-    if (savedSbKey) setSupabaseKey(savedSbKey);
     if (savedDsKey) setDeepseekKey(savedDsKey);
     if (savedAccount) {
       try {
@@ -62,11 +62,12 @@ const App: React.FC = () => {
       }
     }
 
-    // Attempt to load data
-    if (savedUrl && savedSbKey) {
-        loadDataFromSupabase(savedUrl, savedSbKey);
+    // 直接使用 useState 里填写的硬编码 Key 来加载数据
+    if (supabaseUrl && supabaseKey) {
+        console.log('正在使用硬编码配置连接数据库...');
+        loadDataFromSupabase(supabaseUrl, supabaseKey);
     } else {
-        // Fallback to local storage for demo mode if no DB configured
+        // Fallback
         const localLogs = localStorage.getItem(STORAGE_KEY);
         if (localLogs) setLogs(JSON.parse(localLogs));
     }
@@ -108,6 +109,7 @@ const App: React.FC = () => {
     setSupabaseKey(cleanSbKey);
     setDeepseekKey(cleanDsKey);
 
+    // Save to local storage (optional now, but good for updates)
     localStorage.setItem(SUPABASE_URL_STORAGE, cleanUrl);
     localStorage.setItem(SUPABASE_KEY_STORAGE, cleanSbKey);
     localStorage.setItem(DEEPSEEK_KEY_STORAGE, cleanDsKey);
@@ -116,8 +118,6 @@ const App: React.FC = () => {
         loadDataFromSupabase(cleanUrl, cleanSbKey);
     } else {
         setIsCloudConnected(false);
-        // If disconnecting, maybe revert to local logs? 
-        // For now, keep current view but mark disconnected.
     }
     setShowSettings(false);
   };
@@ -150,8 +150,7 @@ const App: React.FC = () => {
       }
   };
 
-  // Helper to get ISO string with local timezone offset to preserve user context
-  // Returns standard ISO 8601 format compatible with Supabase
+  // Helper to get ISO string with local timezone offset
   const getLocalISOString = () => {
       const date = new Date();
       const tzo = -date.getTimezoneOffset();
@@ -159,7 +158,6 @@ const App: React.FC = () => {
       const pad = (num: number) => {
           return (num < 10 ? '0' : '') + num;
       };
-      // Return ISO 8601 format: YYYY-MM-DDTHH:mm:ss.sss±HH:mm
       return date.getFullYear() +
           '-' + pad(date.getMonth() + 1) +
           '-' + pad(date.getDate()) +
@@ -212,13 +210,12 @@ const App: React.FC = () => {
       }
     }
 
-    // Capture input and timestamp immediately to reflect user submission time
-    const userInput = input.trim(); // Save input before any async operations
+    // Capture input and timestamp immediately
+    const userInput = input.trim(); 
     const currentTimestamp = getLocalISOString();
 
     if (!deepseekKey) {
         setShowSettings(true);
-        // Small delay to ensure modal is rendered before alert
         setTimeout(() => alert("请先在设置中配置 DeepSeek API Key"), 100);
         return;
     }
@@ -232,11 +229,9 @@ const App: React.FC = () => {
       let newEntry: LogEntry;
       let savedToCloud = false;
 
-      // Check if Supabase is configured (don't rely on isCloudConnected state)
       const hasSupabaseConfig = supabaseUrl && supabaseKey && supabaseUrl.trim() && supabaseKey.trim();
 
       if (hasSupabaseConfig) {
-          // Try to save to Supabase first
           try {
               newEntry = await saveLog(supabaseUrl.trim(), supabaseKey.trim(), {
                   user_input: userInput,
@@ -245,18 +240,15 @@ const App: React.FC = () => {
                   user_id: currentAccount.id 
               });
               savedToCloud = true;
-              // Update connection status on successful save
               setIsCloudConnected(true);
               setDbError('');
               console.log('✅ 数据已保存到数据库:', newEntry.id);
           } catch (e: any) {
               console.error("保存到数据库失败:", e);
-              // Fallback to local storage if database save fails
               savedToCloud = false;
               setIsCloudConnected(false);
               setDbError('数据库保存失败，已保存到本地: ' + e.message);
               
-              // Create local entry as fallback
               newEntry = {
                 id: Date.now().toString(),
                 timestamp: currentTimestamp,
@@ -265,7 +257,6 @@ const App: React.FC = () => {
               };
           }
       } else {
-          // No Supabase config, save to local only
           newEntry = {
             id: Date.now().toString(),
             timestamp: currentTimestamp,
@@ -275,33 +266,23 @@ const App: React.FC = () => {
           setIsCloudConnected(false);
       }
 
-      // Always update local storage as backup (even if saved to cloud)
       const updatedLogs = [newEntry, ...logs];
       localStorage.setItem(STORAGE_KEY, JSON.stringify(updatedLogs));
 
-      // Record usage if saved to cloud
       if (savedToCloud && supabaseUrl && supabaseKey && currentAccount) {
         try {
           await recordUsage(supabaseUrl, supabaseKey, currentAccount.id);
-          await loadAccountInfo(); // Refresh account info
+          await loadAccountInfo();
         } catch (err) {
           console.error('记录使用次数失败:', err);
         }
       }
 
-      // Update UI state
       setLogs(prev => [newEntry, ...prev]);
       setInput('');
 
-      // Show success message
-      if (savedToCloud) {
-          console.log('✅ 数据已成功保存到云端数据库');
-      } else {
-          console.log('💾 数据已保存到本地存储');
-      }
     } catch (error: any) {
       console.error("提交失败:", error);
-      // Even on error, try to save to local storage as last resort
       try {
           const fallbackEntry: LogEntry = {
               id: Date.now().toString(),
@@ -319,7 +300,6 @@ const App: React.FC = () => {
           const fallbackLogs = [fallbackEntry, ...logs];
           localStorage.setItem(STORAGE_KEY, JSON.stringify(fallbackLogs));
           setLogs(fallbackLogs);
-          console.log('⚠️ 已保存到本地作为备份');
       } catch (fallbackError) {
           console.error('本地备份也失败:', fallbackError);
       }
@@ -329,7 +309,6 @@ const App: React.FC = () => {
     }
   };
 
-  // Helper to check date equality
   const isToday = (dateStr: string) => {
       const d = new Date(dateStr);
       const today = new Date();
@@ -339,12 +318,8 @@ const App: React.FC = () => {
   };
 
   const latestLog = logs[0];
-
-  // History logs: Filter today's logs
-  // List displays ALL of today's records.
   const todayHistoryLogs = logs.filter(log => isToday(log.timestamp));
 
-  // Show login if not authenticated
   if (!currentAccount) {
     return (
       <Login 
@@ -367,7 +342,6 @@ const App: React.FC = () => {
             </div>
             
             <div className="flex items-center gap-2">
-              {/* Status Badge */}
               <div className={`flex items-center gap-1 px-2 py-1 rounded-full text-[10px] font-bold border transition-colors ${isCloudConnected ? 'bg-emerald-50 text-emerald-600 border-emerald-200' : 'bg-orange-50 text-orange-500 border-orange-200'}`}>
                   {isCloudConnected ? <Cloud size={10} /> : <HardDrive size={10} />}
                   {isCloudConnected ? '已同步' : '本地模式'}
@@ -382,7 +356,6 @@ const App: React.FC = () => {
             </div>
           </div>
 
-          {/* Account Info */}
           <div className="flex items-center justify-between pt-2 border-t border-slate-100">
             <div className="flex items-center gap-2 text-xs">
               <User size={14} className="text-slate-400" />
@@ -411,8 +384,6 @@ const App: React.FC = () => {
       {showSettings && (
         <div className="bg-white border-b border-slate-200 p-4 animate-in slide-in-from-top-5 shadow-lg z-40 relative">
             <div className="max-w-lg mx-auto space-y-4">
-                
-                {/* DeepSeek Config */}
                 <div className="pt-2">
                     <label className="flex items-center gap-2 text-xs font-semibold text-blue-700 uppercase mb-1">
                         <KeyRound size={14} /> DeepSeek API Key
@@ -427,7 +398,6 @@ const App: React.FC = () => {
                     <p className="text-[10px] text-slate-400 mt-1">DeepSeek Key 仅存储在本地浏览器，用于调用 AI 分析。</p>
                 </div>
 
-                {/* Supabase Config */}
                 <div className="pt-4 border-t border-slate-100">
                     <label className="flex items-center gap-2 text-xs font-semibold text-emerald-700 uppercase mb-1">
                         <Database size={14} /> Supabase 数据库
@@ -437,7 +407,7 @@ const App: React.FC = () => {
                             type="text" 
                             value={supabaseUrl}
                             onChange={(e) => setSupabaseUrl(e.target.value)}
-                            placeholder="Project URL (https://xyz.supabase.co)"
+                            placeholder="Project URL"
                             className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none"
                         />
                         <input 
@@ -470,14 +440,12 @@ const App: React.FC = () => {
       )}
 
       <main className="max-w-lg mx-auto px-4 py-6">
-        {/* DB Connection Error Alert */}
         {dbError && (
              <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg flex items-center gap-2 text-xs text-red-600">
                  <AlertCircle size={16} /> {dbError}
              </div>
         )}
 
-        {/* Tabs */}
         <div className="flex p-1 bg-slate-200 rounded-xl mb-6 shadow-inner">
           <button 
             onClick={() => setActiveTab('record')}
@@ -495,13 +463,10 @@ const App: React.FC = () => {
 
         {activeTab === 'record' && (
           <div className="space-y-6 animate-in fade-in zoom-in-95 duration-300">
-            
-            {/* Trend Chart */}
             <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100">
                 <TrendChart data={logs} />
             </div>
 
-            {/* Input Area */}
             <div className="bg-white p-4 rounded-2xl shadow-lg border border-teal-100/50 relative overflow-hidden group transition-shadow hover:shadow-xl">
                 <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-teal-400 via-purple-400 to-orange-400"></div>
                 <textarea 
@@ -527,10 +492,8 @@ const App: React.FC = () => {
                 </div>
             </div>
 
-            {/* Latest Result */}
             {latestLog && (
                 <div className="space-y-6 relative">
-                     {/* Delete Button for the Latest Card */}
                     <button 
                         onClick={() => handleDeleteLog(latestLog.id)}
                         className="absolute top-0 right-0 p-2 text-slate-300 hover:text-red-400 transition-colors z-10"
@@ -539,24 +502,20 @@ const App: React.FC = () => {
                         <Trash2 size={16} />
                     </button>
 
-                    {/* Safety Check: Only render analysis if valid */}
                     {latestLog.ai_result ? (
                         <>
-                            {/* Summary Badge */}
                             <div className="flex justify-center">
                                 <span className="bg-teal-50 text-teal-700 px-4 py-1 rounded-full text-xs font-medium border border-teal-100 shadow-sm">
                                     最新状态: {latestLog.ai_result.summary || '无摘要'}
                                 </span>
                             </div>
 
-                            {/* Gauges */}
                             <div className="flex justify-around items-end px-2">
                                 <Gauge label="平静度" score={latestLog.ai_result.scores?.calmness ?? 0} icon="🕊️" theme="peace" />
                                 <Gauge label="觉察度" score={latestLog.ai_result.scores?.awareness ?? 0} icon="👁️" theme="awareness" />
                                 <Gauge label="能量水平" score={latestLog.ai_result.scores?.energy ?? 0} icon="🔋" theme="energy" />
                             </div>
 
-                            {/* Insights Card */}
                             <div className="bg-purple-50 rounded-2xl p-5 border-l-4 border-purple-600 shadow-sm">
                                 <h4 className="text-purple-800 font-bold text-sm mb-3 uppercase tracking-wide flex items-center gap-2">
                                     💡 深度洞察
@@ -570,7 +529,6 @@ const App: React.FC = () => {
                                 </ul>
                             </div>
 
-                            {/* Actionable Advice */}
                             <div className="bg-emerald-50 rounded-2xl p-5 border border-dashed border-emerald-300">
                                 <h4 className="text-emerald-700 font-bold text-sm mb-2">💊 身心灵调适建议</h4>
                                 <p className="text-emerald-800 text-sm leading-relaxed">
@@ -586,7 +544,6 @@ const App: React.FC = () => {
                 </div>
             )}
 
-            {/* History List (Mini View) - Filtered for Today */}
             {todayHistoryLogs.length > 0 && (
                 <div className="pt-8 border-t border-slate-200">
                     <h3 className="text-slate-400 text-xs font-bold uppercase mb-4 tracking-wider">今日历史记录</h3>
@@ -595,7 +552,6 @@ const App: React.FC = () => {
                             <div key={log.id} className="bg-white p-3 rounded-xl border border-slate-100 flex justify-between items-center hover:border-slate-300 transition-colors group">
                                 <div>
                                     <div className="text-xs text-slate-400">{new Date(log.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</div>
-                                    {/* Display User Input Text Explicitly */}
                                     <div className="text-sm font-medium text-slate-700 mt-1 line-clamp-2">
                                         {log.user_input}
                                     </div>
